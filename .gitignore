@@ -1,0 +1,27 @@
+# Data files - do not upload large satellite data
+04_data/
+*.tif
+*.tiff
+*.zip
+*.h5
+*.pt
+*.pth
+*.pkl
+*.npy
+*.npz
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Environment files
+.env
+venv/
+.venv/
+
+# System files
+.DS_Store
+Thumbs.db
