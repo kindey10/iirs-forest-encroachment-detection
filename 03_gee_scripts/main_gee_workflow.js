@@ -1,4 +1,5 @@
-// Day 2: NDVI Time Series for Udham Singh Nagar from 2019 to 2025
+// NDVI Time Series for Udham Singh Nagar from 2019 to 2026
+// Season used: January to May for each year
 
 // 1. Load district boundary dataset
 var districts = ee.FeatureCollection("FAO/GAUL/2015/level2");
@@ -36,8 +37,8 @@ function maskS2Clouds(image) {
 
 // 6. Function to create NDVI image for one year
 function createNDVIForYear(year) {
-  var startDate = year + "-10-01";
-  var endDate = year + "-12-31";
+  var startDate = year + "-01-01";
+  var endDate = year + "-05-31";
 
   var collection = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
     .filterBounds(studyArea)
@@ -55,7 +56,7 @@ function createNDVIForYear(year) {
   return ndvi;
 }
 
-// 7. Create NDVI maps for multiple years
+// 7. Create NDVI maps for 2019 to 2026
 var ndvi2019 = createNDVIForYear("2019");
 var ndvi2020 = createNDVIForYear("2020");
 var ndvi2021 = createNDVIForYear("2021");
@@ -63,6 +64,7 @@ var ndvi2022 = createNDVIForYear("2022");
 var ndvi2023 = createNDVIForYear("2023");
 var ndvi2024 = createNDVIForYear("2024");
 var ndvi2025 = createNDVIForYear("2025");
+var ndvi2026 = createNDVIForYear("2026");
 
 // 8. NDVI visualization style
 var ndviVis = {
@@ -72,10 +74,11 @@ var ndviVis = {
 };
 
 // 9. Add NDVI layers to map
-Map.addLayer(ndvi2019, ndviVis, "NDVI 2019");
-Map.addLayer(ndvi2020, ndviVis, "NDVI 2020");
-Map.addLayer(ndvi2021, ndviVis, "NDVI 2021");
-Map.addLayer(ndvi2022, ndviVis, "NDVI 2022");
-Map.addLayer(ndvi2023, ndviVis, "NDVI 2023");
-Map.addLayer(ndvi2024, ndviVis, "NDVI 2024");
-Map.addLayer(ndvi2025, ndviVis, "NDVI 2025");
+Map.addLayer(ndvi2019, ndviVis, "NDVI Jan-May 2019");
+Map.addLayer(ndvi2020, ndviVis, "NDVI Jan-May 2020");
+Map.addLayer(ndvi2021, ndviVis, "NDVI Jan-May 2021");
+Map.addLayer(ndvi2022, ndviVis, "NDVI Jan-May 2022");
+Map.addLayer(ndvi2023, ndviVis, "NDVI Jan-May 2023");
+Map.addLayer(ndvi2024, ndviVis, "NDVI Jan-May 2024");
+Map.addLayer(ndvi2025, ndviVis, "NDVI Jan-May 2025");
+Map.addLayer(ndvi2026, ndviVis, "NDVI Jan-May 2026");
