@@ -462,3 +462,81 @@ Export.image.toDrive({
   maxPixels: 1e13,
   fileFormat: "GeoTIFF"
 });
+
+// --------------------------------------------------
+// 22. Create AI-Ready NDVI Time-Series Dataset
+// --------------------------------------------------
+
+// Stack NDVI bands from 2019 to 2026 into one image
+var ndviStack = ndvi2019.rename("NDVI_2019")
+  .addBands(ndvi2020.rename("NDVI_2020"))
+  .addBands(ndvi2021.rename("NDVI_2021"))
+  .addBands(ndvi2022.rename("NDVI_2022"))
+  .addBands(ndvi2023.rename("NDVI_2023"))
+  .addBands(ndvi2024.rename("NDVI_2024"))
+  .addBands(ndvi2025.rename("NDVI_2025"))
+  .addBands(ndvi2026.rename("NDVI_2026"));
+
+
+// --------------------------------------------------
+// 23. Create Labels for AI Dataset
+// --------------------------------------------------
+
+// Class 1: Possible forest-to-non-forest transition
+var changedClass = possibleForestToNonForest;
+
+// Class 0: Stable vegetation / no major change
+// Condition: high vegetation in 2019 and 2026, with very small NDVI change
+var stableClass = ndvi2019.gt(0.5)
+  .and(ndvi2026.gt(0.45))
+  .and(ndviChange_2019_2026.abs().lt(0.1));
+
+// Create label image
+// 1 = changed, 0 = stable/no major change
+var labelImage = ee.Image(0)
+  .where(changedClass, 1)
+  .rename("label");
+
+// Only sample from changed and stable areas
+var samplingMask = changedClass.or(stableClass);
+
+labelImage = labelImage.updateMask(samplingMask);
+
+
+// --------------------------------------------------
+// 24. Combine NDVI Features with Labels
+// --------------------------------------------------
+
+var trainingImage = ndviStack.addBands(labelImage);
+
+
+// --------------------------------------------------
+// 25. Sample Points for AI Dataset
+// --------------------------------------------------
+
+// Create balanced samples from both classes
+var trainingSamples = trainingImage.stratifiedSample({
+  numPoints: 500,
+  classBand: "label",
+  region: studyArea,
+  scale: 10,
+  classValues: [0, 1],
+  classPoints: [500, 500],
+  geometries: true
+});
+
+print("AI-ready training samples:", trainingSamples);
+print("Sample count:", trainingSamples.size());
+
+
+// --------------------------------------------------
+// 26. Export AI Dataset as CSV
+// --------------------------------------------------
+
+Export.table.toDrive({
+  collection: trainingSamples,
+  description: "AI_Training_Dataset_NDVI_2019_2026",
+  folder: "IIRS_Forest_Encroachment",
+  fileNamePrefix: "ai_training_dataset_ndvi_2019_2026",
+  fileFormat: "CSV"
+});
