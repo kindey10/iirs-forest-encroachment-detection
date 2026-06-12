@@ -1,25 +1,34 @@
-// NDVI Time Series for Udham Singh Nagar from 2019 to 2026
+// Forest Encroachment Project
+// NDVI Time Series and Vegetation Loss Analysis
+// Study Area: Udham Singh Nagar, Uttarakhand
 // Season used: January to May for each year
 
-// 1. Load district boundary dataset
+
+// --------------------------------------------------
+// 1. Load Study Area Boundary
+// --------------------------------------------------
+
 var districts = ee.FeatureCollection("FAO/GAUL/2015/level2");
 
-// 2. Select Udham Singh Nagar district
 var studyArea = districts.filter(
   ee.Filter.eq("ADM2_NAME", "Udham Singh Nagar")
 );
 
-// 3. Center map on study area
 Map.centerObject(studyArea, 9);
 
-// 4. Add study area boundary
 Map.addLayer(
   studyArea,
   {color: "red"},
   "Udham Singh Nagar Boundary"
 );
 
-// 5. Function to mask clouds using Sentinel-2 Scene Classification Layer
+print("Study Area:", studyArea);
+
+
+// --------------------------------------------------
+// 2. Cloud Masking Function for Sentinel-2
+// --------------------------------------------------
+
 function maskS2Clouds(image) {
   var scl = image.select("SCL");
 
@@ -35,10 +44,14 @@ function maskS2Clouds(image) {
     .copyProperties(image, ["system:time_start"]);
 }
 
-// 6. Function to create NDVI image for one year
-function createNDVIForYear(year) {
+
+// --------------------------------------------------
+// 3. Function to Create Sentinel-2 Median Image
+// --------------------------------------------------
+
+function createSentinelImage(year) {
   var startDate = year + "-01-01";
-  var endDate = year + "-05-31";
+  var endDate = year + "-06-01"; // includes Jan-May
 
   var collection = ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
     .filterBounds(studyArea)
@@ -46,17 +59,60 @@ function createNDVIForYear(year) {
     .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 30))
     .map(maskS2Clouds);
 
+  print("Number of Sentinel-2 images for " + year + ":", collection.size());
+
   var medianImage = collection.median().clip(studyArea);
 
-  var ndvi = medianImage.normalizedDifference(["B8", "B4"])
-    .rename("NDVI_" + year);
+  return medianImage;
+}
 
-  print("Number of Sentinel-2 images for " + year + ":", collection.size());
+
+// --------------------------------------------------
+// 4. Function to Create NDVI for One Year
+// --------------------------------------------------
+
+function createNDVIForYear(year) {
+  var image = createSentinelImage(year);
+
+  var ndvi = image.normalizedDifference(["B8", "B4"])
+    .rename("NDVI_" + year);
 
   return ndvi;
 }
 
-// 7. Create NDVI maps for 2019 to 2026
+
+// --------------------------------------------------
+// 5. Create Sentinel True-Colour Images
+// --------------------------------------------------
+
+var sentinel2019 = createSentinelImage("2019");
+var sentinel2026 = createSentinelImage("2026");
+
+Map.addLayer(
+  sentinel2019,
+  {
+    bands: ["B4", "B3", "B2"],
+    min: 0,
+    max: 0.3
+  },
+  "Sentinel-2 True Colour Jan-May 2019"
+);
+
+Map.addLayer(
+  sentinel2026,
+  {
+    bands: ["B4", "B3", "B2"],
+    min: 0,
+    max: 0.3
+  },
+  "Sentinel-2 True Colour Jan-May 2026"
+);
+
+
+// --------------------------------------------------
+// 6. Create NDVI Maps from 2019 to 2026
+// --------------------------------------------------
+
 var ndvi2019 = createNDVIForYear("2019");
 var ndvi2020 = createNDVIForYear("2020");
 var ndvi2021 = createNDVIForYear("2021");
@@ -66,14 +122,12 @@ var ndvi2024 = createNDVIForYear("2024");
 var ndvi2025 = createNDVIForYear("2025");
 var ndvi2026 = createNDVIForYear("2026");
 
-// 8. NDVI visualization style
 var ndviVis = {
   min: -0.2,
   max: 0.8,
   palette: ["brown", "yellow", "green"]
 };
 
-// 9. Add NDVI layers to map
 Map.addLayer(ndvi2019, ndviVis, "NDVI Jan-May 2019");
 Map.addLayer(ndvi2020, ndviVis, "NDVI Jan-May 2020");
 Map.addLayer(ndvi2021, ndviVis, "NDVI Jan-May 2021");
@@ -82,3 +136,167 @@ Map.addLayer(ndvi2023, ndviVis, "NDVI Jan-May 2023");
 Map.addLayer(ndvi2024, ndviVis, "NDVI Jan-May 2024");
 Map.addLayer(ndvi2025, ndviVis, "NDVI Jan-May 2025");
 Map.addLayer(ndvi2026, ndviVis, "NDVI Jan-May 2026");
+
+
+// --------------------------------------------------
+// 7. Calculate NDVI Change from 2019 to 2026
+// --------------------------------------------------
+
+var ndviChange_2019_2026 = ndvi2026.subtract(ndvi2019)
+  .rename("NDVI_Change_2019_2026");
+
+var changeVis = {
+  min: -0.5,
+  max: 0.5,
+  palette: ["red", "white", "green"]
+};
+
+Map.addLayer(
+  ndviChange_2019_2026,
+  changeVis,
+  "NDVI Change 2019 to 2026"
+);
+
+
+// --------------------------------------------------
+// 8. Create Possible Vegetation Loss Mask
+// --------------------------------------------------
+
+// If NDVI has decreased by more than 0.2, mark it as possible vegetation loss
+var vegetationLoss = ndviChange_2019_2026.lt(-0.2)
+  .rename("Possible_Vegetation_Loss");
+
+Map.addLayer(
+  vegetationLoss.selfMask(),
+  {palette: ["red"]},
+  "Possible Vegetation Loss Areas"
+);
+
+
+// --------------------------------------------------
+// 9. Calculate Possible Vegetation Loss Area
+// --------------------------------------------------
+
+var pixelArea = ee.Image.pixelArea();
+
+var vegetationLossArea = vegetationLoss
+  .multiply(pixelArea)
+  .reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: studyArea,
+    scale: 10,
+    maxPixels: 1e13
+  });
+
+var vegetationLossSqKm = ee.Number(
+  vegetationLossArea.get("Possible_Vegetation_Loss")
+).divide(1000000);
+
+print(
+  "Possible vegetation loss area from 2019 to 2026 in sq. km:",
+  vegetationLossSqKm
+);
+
+
+// --------------------------------------------------
+// 10. Print Final Layers for Checking
+// --------------------------------------------------
+
+print("NDVI 2019:", ndvi2019);
+print("NDVI 2026:", ndvi2026);
+print("NDVI Change 2019 to 2026:", ndviChange_2019_2026);
+print("Possible Vegetation Loss Mask:", vegetationLoss);
+
+// --------------------------------------------------
+// 11. Year-wise Vegetation Loss Area Compared to 2019
+// --------------------------------------------------
+
+// Function to calculate vegetation loss area compared to 2019
+function calculateLossArea(targetNDVI, year) {
+  
+  // NDVI change = target year NDVI - 2019 NDVI
+  var change = targetNDVI.subtract(ndvi2019);
+  
+  // Possible vegetation loss where NDVI decrease is more than 0.2
+  var loss = change.lt(-0.2).rename("loss");
+  
+  // Calculate area in square kilometers
+  var area = loss
+    .multiply(ee.Image.pixelArea())
+    .reduceRegion({
+      reducer: ee.Reducer.sum(),
+      geometry: studyArea,
+      scale: 10,
+      maxPixels: 1e13
+    });
+  
+  var areaSqKm = ee.Number(area.get("loss")).divide(1000000);
+  
+  return ee.Feature(null, {
+    "Year": year,
+    "Vegetation_Loss_sq_km": areaSqKm
+  });
+}
+
+// Create table for each year compared to 2019
+var lossTable = ee.FeatureCollection([
+  calculateLossArea(ndvi2020, "2020"),
+  calculateLossArea(ndvi2021, "2021"),
+  calculateLossArea(ndvi2022, "2022"),
+  calculateLossArea(ndvi2023, "2023"),
+  calculateLossArea(ndvi2024, "2024"),
+  calculateLossArea(ndvi2025, "2025"),
+  calculateLossArea(ndvi2026, "2026")
+]);
+
+// Print table
+print("Year-wise possible vegetation loss area compared to 2019:", lossTable);
+
+// Create graph
+var lossChart = ui.Chart.feature.byFeature({
+  features: lossTable,
+  xProperty: "Year",
+  yProperties: ["Vegetation_Loss_sq_km"]
+})
+.setChartType("ColumnChart")
+.setOptions({
+  title: "Possible Vegetation Loss Area Compared to 2019",
+  hAxis: {
+    title: "Year"
+  },
+  vAxis: {
+    title: "Area in sq. km."
+  },
+  legend: {
+    position: "none"
+  }
+});
+
+// Print graph
+print(lossChart);
+
+// --------------------------------------------------
+// 12. Print Table Values in Simple Form
+// --------------------------------------------------
+
+print(
+  "Years:",
+  lossTable.aggregate_array("Year")
+);
+
+print(
+  "Vegetation loss area values in sq. km:",
+  lossTable.aggregate_array("Vegetation_Loss_sq_km")
+);
+
+// --------------------------------------------------
+// 13. Export Year-wise Vegetation Loss Table to Google Drive
+// --------------------------------------------------
+
+Export.table.toDrive({
+  collection: lossTable,
+  description: "Vegetation_Loss_Area_2019_2026",
+  folder: "IIRS_Forest_Encroachment",
+  fileNamePrefix: "vegetation_loss_area_2019_2026",
+  fileFormat: "CSV"
+});
