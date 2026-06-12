@@ -300,3 +300,34 @@ Export.table.toDrive({
   fileNamePrefix: "vegetation_loss_area_2019_2026",
   fileFormat: "CSV"
 });
+
+// --------------------------------------------------
+// 14. Export NDVI Change Map to Google Drive
+// --------------------------------------------------
+
+Export.image.toDrive({
+  image: ndviChange_2019_2026,
+  description: "NDVI_Change_Map_2019_2026",
+  folder: "IIRS_Forest_Encroachment",
+  fileNamePrefix: "ndvi_change_2019_2026",
+  region: studyArea.geometry(),
+  scale: 10,
+  maxPixels: 1e13,
+  fileFormat: "GeoTIFF"
+});
+
+
+// --------------------------------------------------
+// 15. Export Possible Vegetation Loss Map to Google Drive
+// --------------------------------------------------
+
+Export.image.toDrive({
+  image: vegetationLoss.selfMask(),
+  description: "Possible_Vegetation_Loss_Map_2019_2026",
+  folder: "IIRS_Forest_Encroachment",
+  fileNamePrefix: "possible_vegetation_loss_2019_2026",
+  region: studyArea.geometry(),
+  scale: 10,
+  maxPixels: 1e13,
+  fileFormat: "GeoTIFF"
+});
