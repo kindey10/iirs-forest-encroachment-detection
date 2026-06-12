@@ -398,3 +398,67 @@ Export.image.toDrive({
   maxPixels: 1e13,
   fileFormat: "GeoTIFF"
 });
+
+// --------------------------------------------------
+// 19. Light Cleaning of Small Scattered Pixels
+// --------------------------------------------------
+
+// Count connected neighbouring pixels
+var connectedPixels = possibleForestToNonForest
+  .selfMask()
+  .connectedPixelCount({
+    maxSize: 100,
+    eightConnected: true
+  });
+
+// Keep only clusters having at least 2 connected pixels
+// This is light cleaning, not strict cleaning
+var lightlyCleanedForestToNonForest = possibleForestToNonForest
+  .updateMask(connectedPixels.gte(2))
+  .rename("Lightly_Cleaned_Forest_to_NonForest_Transition");
+
+// Display lightly cleaned transition map
+Map.addLayer(
+  lightlyCleanedForestToNonForest.selfMask(),
+  {palette: ["#8000ff"]},
+  "Lightly Cleaned Forest-to-Non-Forest Transition"
+);
+
+
+// --------------------------------------------------
+// 20. Calculate Area of Lightly Cleaned Transition Map
+// --------------------------------------------------
+
+var lightlyCleanedTransitionArea = lightlyCleanedForestToNonForest
+  .multiply(ee.Image.pixelArea())
+  .reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: studyArea,
+    scale: 10,
+    maxPixels: 1e13
+  });
+
+var lightlyCleanedTransitionAreaSqKm = ee.Number(
+  lightlyCleanedTransitionArea.get("Lightly_Cleaned_Forest_to_NonForest_Transition")
+).divide(1000000);
+
+print(
+  "Lightly cleaned possible forest-to-non-forest transition area from 2019 to 2026 in sq. km:",
+  lightlyCleanedTransitionAreaSqKm
+);
+
+
+// --------------------------------------------------
+// 21. Export Lightly Cleaned Transition Map
+// --------------------------------------------------
+
+Export.image.toDrive({
+  image: lightlyCleanedForestToNonForest.selfMask(),
+  description: "Lightly_Cleaned_Forest_to_NonForest_Transition_2019_2026",
+  folder: "IIRS_Forest_Encroachment",
+  fileNamePrefix: "lightly_cleaned_forest_to_nonforest_transition_2019_2026",
+  region: studyArea.geometry(),
+  scale: 10,
+  maxPixels: 1e13,
+  fileFormat: "GeoTIFF"
+});
