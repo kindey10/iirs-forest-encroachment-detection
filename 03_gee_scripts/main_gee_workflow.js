@@ -331,3 +331,70 @@ Export.image.toDrive({
   maxPixels: 1e13,
   fileFormat: "GeoTIFF"
 });
+
+// --------------------------------------------------
+// 16. Possible Forest-to-Non-Forest Transition Mask
+// --------------------------------------------------
+
+// Condition 1: Area had high vegetation in 2019
+// NDVI greater than 0.5 means strong vegetation
+var highVegetation2019 = ndvi2019.gt(0.5);
+
+// Condition 2: Area has lower vegetation in 2026
+// NDVI less than 0.35 means reduced vegetation / possible non-forest
+var lowVegetation2026 = ndvi2026.lt(0.35);
+
+// Condition 3: NDVI decreased strongly from 2019 to 2026
+var strongNDVIDrop = ndviChange_2019_2026.lt(-0.2);
+
+// Combine all conditions
+var possibleForestToNonForest = highVegetation2019
+  .and(lowVegetation2026)
+  .and(strongNDVIDrop)
+  .rename("Possible_Forest_to_NonForest_Transition");
+
+// Display possible forest-to-non-forest transition areas
+Map.addLayer(
+  possibleForestToNonForest.selfMask(),
+  {palette: ["purple"]},
+  "Possible Forest-to-Non-Forest Transition"
+);
+
+
+// --------------------------------------------------
+// 17. Calculate Area of Possible Forest-to-Non-Forest Transition
+// --------------------------------------------------
+
+var transitionArea = possibleForestToNonForest
+  .multiply(ee.Image.pixelArea())
+  .reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: studyArea,
+    scale: 10,
+    maxPixels: 1e13
+  });
+
+var transitionAreaSqKm = ee.Number(
+  transitionArea.get("Possible_Forest_to_NonForest_Transition")
+).divide(1000000);
+
+print(
+  "Possible forest-to-non-forest transition area from 2019 to 2026 in sq. km:",
+  transitionAreaSqKm
+);
+
+
+// --------------------------------------------------
+// 18. Export Possible Forest-to-Non-Forest Transition Map
+// --------------------------------------------------
+
+Export.image.toDrive({
+  image: possibleForestToNonForest.selfMask(),
+  description: "Possible_Forest_to_NonForest_Transition_2019_2026",
+  folder: "IIRS_Forest_Encroachment",
+  fileNamePrefix: "possible_forest_to_nonforest_transition_2019_2026",
+  region: studyArea.geometry(),
+  scale: 10,
+  maxPixels: 1e13,
+  fileFormat: "GeoTIFF"
+});
