@@ -1,29 +1,4 @@
-// Day 1: Load Study Area - Udham Singh Nagar, Uttarakhand
-
-// Load district boundary dataset
-var districts = ee.FeatureCollection("FAO/GAUL/2015/level2");
-
-// Print first few features to check district names
-print("District dataset sample:", districts.limit(5));
-
-// Filter for Udham Singh Nagar district
-var studyArea = districts.filter(
-  ee.Filter.eq("ADM2_NAME", "Udham Singh Nagar")
-);
-
-// Print selected study area
-print("Selected Study Area:", studyArea);
-
-// Center map on study area
-Map.centerObject(studyArea, 9);
-
-// Add study area boundary to map
-Map.addLayer(
-  studyArea,
-  {color: "red"},
-  "Udham Singh Nagar Boundary"
-);
-// Day 1: Load Udham Singh Nagar and Sentinel-2 Image
+// Day 1: Load Udham Singh Nagar, Sentinel-2 Image, and NDVI Map
 
 // 1. Load district boundary dataset
 var districts = ee.FeatureCollection("FAO/GAUL/2015/level2");
@@ -63,6 +38,21 @@ Map.addLayer(
   "Sentinel-2 True Colour 2024"
 );
 
-// 8. Print image collection details
+// 8. Calculate NDVI
+var ndvi2024 = image2024.normalizedDifference(["B8", "B4"]).rename("NDVI");
+
+// 9. Display NDVI map
+Map.addLayer(
+  ndvi2024,
+  {
+    min: -0.2,
+    max: 0.8,
+    palette: ["brown", "yellow", "green"]
+  },
+  "NDVI 2024"
+);
+
+// 10. Print details
 print("Sentinel-2 Image Collection:", sentinel2);
 print("Number of images found:", sentinel2.size());
+print("NDVI 2024:", ndvi2024);
