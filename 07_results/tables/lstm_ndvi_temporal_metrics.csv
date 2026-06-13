@@ -1,0 +1,2 @@
+Model,Accuracy,Precision,Recall,F1_score
+LSTM NDVI temporal baseline,0.75,0.7551020408163265,0.74,0.7474747474747475
