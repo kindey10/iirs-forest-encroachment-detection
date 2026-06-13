@@ -526,34 +526,44 @@ var trainingSamples = trainingImage.stratifiedSample({
 });
 
 // --------------------------------------------------
-// Export patch center points for future ViT-LSTM dataset
+// Memory-safe patch center export for future ViT-LSTM dataset
 // --------------------------------------------------
 
-var patchCenters = trainingSamples.map(function(feature) {
+// Use only the label image for sampling.
+// We do not export NDVI columns here to avoid memory errors.
+
+var patchLabelImage = labelImage.rename("label").toByte();
+
+var patchCenterSamples = patchLabelImage.stratifiedSample({
+  numPoints: 0,
+  classBand: "label",
+  region: studyArea,
+  scale: 10,
+  classValues: [0, 1],
+  classPoints: [150, 150],
+  seed: 42,
+  geometries: true,
+  tileScale: 8
+});
+
+var patchCenters = patchCenterSamples.map(function(feature) {
   var coords = feature.geometry().coordinates();
 
-  return ee.Feature(feature.geometry(), {
+  return ee.Feature(null, {
     label: feature.get("label"),
     longitude: coords.get(0),
-    latitude: coords.get(1),
-    NDVI_2019: feature.get("NDVI_2019"),
-    NDVI_2020: feature.get("NDVI_2020"),
-    NDVI_2021: feature.get("NDVI_2021"),
-    NDVI_2022: feature.get("NDVI_2022"),
-    NDVI_2023: feature.get("NDVI_2023"),
-    NDVI_2024: feature.get("NDVI_2024"),
-    NDVI_2025: feature.get("NDVI_2025"),
-    NDVI_2026: feature.get("NDVI_2026")
+    latitude: coords.get(1)
   });
 });
 
-print("ViT-LSTM patch center points:", patchCenters.limit(10));
+print("ViT-LSTM patch centers:", patchCenters.limit(10));
+print("Patch center class count:", patchCenters.aggregate_histogram("label"));
 
 Export.table.toDrive({
   collection: patchCenters,
-  description: "ViT_LSTM_Patch_Centers_2019_2026",
+  description: "ViT_LSTM_Patch_Centers_2019_2026_Small",
   folder: "IIRS_Forest_Encroachment",
-  fileNamePrefix: "vit_lstm_patch_centers_2019_2026",
+  fileNamePrefix: "vit_lstm_patch_centers_2019_2026_small",
   fileFormat: "CSV"
 });
 
