@@ -525,6 +525,38 @@ var trainingSamples = trainingImage.stratifiedSample({
   geometries: true
 });
 
+// --------------------------------------------------
+// Export patch center points for future ViT-LSTM dataset
+// --------------------------------------------------
+
+var patchCenters = trainingSamples.map(function(feature) {
+  var coords = feature.geometry().coordinates();
+
+  return ee.Feature(feature.geometry(), {
+    label: feature.get("label"),
+    longitude: coords.get(0),
+    latitude: coords.get(1),
+    NDVI_2019: feature.get("NDVI_2019"),
+    NDVI_2020: feature.get("NDVI_2020"),
+    NDVI_2021: feature.get("NDVI_2021"),
+    NDVI_2022: feature.get("NDVI_2022"),
+    NDVI_2023: feature.get("NDVI_2023"),
+    NDVI_2024: feature.get("NDVI_2024"),
+    NDVI_2025: feature.get("NDVI_2025"),
+    NDVI_2026: feature.get("NDVI_2026")
+  });
+});
+
+print("ViT-LSTM patch center points:", patchCenters.limit(10));
+
+Export.table.toDrive({
+  collection: patchCenters,
+  description: "ViT_LSTM_Patch_Centers_2019_2026",
+  folder: "IIRS_Forest_Encroachment",
+  fileNamePrefix: "vit_lstm_patch_centers_2019_2026",
+  fileFormat: "CSV"
+});
+
 print("AI-ready training samples:", trainingSamples);
 print("Sample count:", trainingSamples.size());
 
